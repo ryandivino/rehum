@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confirmar entrega — ReHum OS</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="standalone-page">
+
+<div class="standalone-wrap">
+  <div class="standalone-card" id="loadingState">
+    <p class="empty-sub">Carregando...</p>
+  </div>
+
+  <div class="standalone-card" id="notFoundState" style="display:none;">
+    <h1 class="panel-title">Link inválido</h1>
+    <p class="empty-sub">Não encontramos esse setor. Verifique o QR Code ou fale com o RH.</p>
+  </div>
+
+  <div class="standalone-card" id="identifyState" style="display:none;">
+    <h1 class="panel-title" id="identifyTitle"></h1>
+    <p class="empty-sub">Confirme quem está recebendo esse lote pelo setor. A partir dessa confirmação, a responsabilidade de entregar aos colaboradores passa a ser sua.</p>
+    <label class="form-label">Seu nome</label>
+    <input type="text" class="form-input" id="responsavelInput" placeholder="Nome completo">
+    <button class="primary-btn" id="confirmReceiptBtn">Confirmar recebimento</button>
+    <p class="tool-status" id="identifyStatus"></p>
+  </div>
+
+  <div class="standalone-card" id="checklistState" style="display:none;">
+    <h1 class="panel-title" id="checklistTitle"></h1>
+    <p class="empty-sub" id="checklistMeta"></p>
+    <ul class="file-list" id="colaboradorList"></ul>
+    <button class="link-btn" id="downloadComprovanteBtn">Baixar comprovante de recebimento</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="entrega.js"></script>
+</body>
+</html>
