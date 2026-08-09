@@ -10,7 +10,7 @@
 <body>
 
 <div class="login-gate" id="loginGate" style="display:none;">
-  <div class="login-card">
+  <div class="login-card" id="loginFormCard">
     <div class="brand-mark brand-mark-large">
       <img src="logo.png" alt="Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
       <span class="logo-fallback">R</span>
@@ -21,6 +21,19 @@
     <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
     <button class="primary-btn" id="loginSubmitBtn">Entrar</button>
     <p class="login-error" id="loginError" style="display:none;"></p>
+  </div>
+
+  <div class="login-card" id="newPasswordCard" style="display:none;">
+    <div class="brand-mark brand-mark-large">
+      <img src="logo.png" alt="Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <span class="logo-fallback">R</span>
+    </div>
+    <h1>Defina uma nova senha</h1>
+    <p>Você entrou com a senha padrão. Por segurança, escolha uma senha só sua antes de continuar.</p>
+    <input type="password" id="newPasswordInput" placeholder="Nova senha" autocomplete="new-password">
+    <input type="password" id="newPasswordConfirmInput" placeholder="Confirme a nova senha" autocomplete="new-password">
+    <button class="primary-btn" id="newPasswordSubmitBtn">Salvar nova senha</button>
+    <p class="login-error" id="newPasswordError" style="display:none;"></p>
   </div>
 </div>
 
@@ -98,6 +111,7 @@
     </nav>
 
     <div class="sidebar-footer">
+      <div class="sidebar-scope sidebar-label">Workspace interno · RH</div>
       <button class="logout-btn sidebar-label" id="logoutBtn">Sair</button>
     </div>
   </aside>
@@ -195,7 +209,7 @@
             <input type="file" id="reorderFileInput" accept="application/pdf" multiple style="display:none;">
             <p>Arraste um ou mais PDFs aqui ou <button class="link-btn" id="reorderBrowseBtn">selecione os arquivos</button></p>
           </div>
-          <p class="tool-status">Pode adicionar mais arquivos depois, as páginas de todos entram na mesma lista pra você organizar e juntar.</p>
+          <p class="tool-status">Pode adicionar mais arquivos depois — as páginas de todos entram na mesma lista pra você organizar e juntar.</p>
           <ul class="page-grid" id="reorderPageList"></ul>
           <button class="primary-btn" id="reorderRunBtn" disabled>Salvar novo PDF</button>
           <p class="tool-status" id="reorderStatus"></p>

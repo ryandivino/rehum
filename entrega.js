@@ -57,9 +57,10 @@ function renderIdentify(){
 
 document.getElementById('confirmReceiptBtn').onclick = async () => {
   const nome = document.getElementById('responsavelInput').value.trim();
+  const matricula = document.getElementById('responsavelMatriculaInput').value.trim();
   const statusEl = document.getElementById('identifyStatus');
-  if(!nome){
-    statusEl.textContent = 'Informe seu nome pra confirmar.';
+  if(!nome || !matricula){
+    statusEl.textContent = 'Informe seu nome e sua matrícula pra confirmar.';
     statusEl.className = 'tool-status error';
     return;
   }
@@ -70,6 +71,7 @@ document.getElementById('confirmReceiptBtn').onclick = async () => {
     .from('setores')
     .update({
       responsavel_nome: nome,
+      responsavel_matricula: matricula,
       confirmado_em: new Date().toISOString(),
       status: 'confirmado',
     })
@@ -82,6 +84,7 @@ document.getElementById('confirmReceiptBtn').onclick = async () => {
   }
 
   currentSetor.responsavel_nome = nome;
+  currentSetor.responsavel_matricula = matricula;
   currentSetor.status = 'confirmado';
   renderChecklist();
 };
@@ -89,7 +92,7 @@ document.getElementById('confirmReceiptBtn').onclick = async () => {
 function renderChecklist(){
   document.getElementById('checklistTitle').textContent = `${currentCampanhaNome} — ${currentSetor.nome_setor}`;
   document.getElementById('checklistMeta').textContent =
-    `Recebido por ${currentSetor.responsavel_nome}. Marque quem já recebeu.`;
+    `Recebido por ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula}). Marque quem já recebeu.`;
 
   const listEl = document.getElementById('colaboradorList');
   listEl.innerHTML = '';
@@ -162,6 +165,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
   let page = pdfDoc.addPage([420, 600]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
   const PRIMARY = rgb(0.263, 0.220, 0.792);
   const INK = rgb(0.09, 0.10, 0.13);
@@ -173,17 +177,16 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
   const marginX = 40;
   const pageWidth = 420;
 
-  // Cabeçalho com espaço para os logos. Salve os arquivos logo-rehum.png,
-  // logo-ceuma.png e logo-rh.png na mesma pasta do site pra eles aparecerem aqui.
-  const logoSize = 44;
+  // Cabeçalho com espaço para os logos institucionais (Ceuma e RH).
+  // A logo do ReHum não entra na impressão — ver crédito no rodapé.
+  // Salve os arquivos logo-ceuma.png e logo-rh.png na mesma pasta do site pra eles aparecerem aqui.
+  const logoSize = 32;
   const logoY = 600 - 24 - logoSize;
-  const logoRehum = await tryEmbedImage(pdfDoc, 'logo-rehum.png');
   const logoCeuma = await tryEmbedImage(pdfDoc, 'logo-ceuma.png');
   const logoRh = await tryEmbedImage(pdfDoc, 'logo-rh.png');
 
   [
-    { img: logoRehum, x: marginX },
-    { img: logoCeuma, x: (pageWidth - logoSize) / 2 },
+    { img: logoCeuma, x: marginX },
     { img: logoRh, x: pageWidth - marginX - logoSize },
   ].forEach(({ img, x }) => {
     if(!img) return;
@@ -205,7 +208,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
   const infoLines = [
     `Campanha: ${currentCampanhaNome}`,
     `Setor: ${currentSetor.nome_setor}`,
-    `Recebido por: ${currentSetor.responsavel_nome}`,
+    `Recebido por: ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula})`,
     `Data de confirmação: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (horário de Brasília)' : ''}`,
   ];
   const infoHeight = infoLines.length * 18 + 16;
@@ -247,8 +250,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('ReHum', { x: marginX, y: 20, size: 9, font: bold, color: PRIMARY });
-  page.drawText('Workspace interno do RH', { x: marginX + 40, y: 20, size: 8, font, color: MUTED });
+  page.drawText('Gerado via ReHum.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   const blob = new Blob([bytes], { type: 'application/pdf' });

@@ -8,25 +8,48 @@ if(window.supabase){
 }
 
 // ---------- Login do RH (Supabase Auth) ----------
+// Senha padrão dada pra contas novas. Troque esse valor livremente quando quiser.
+const DEFAULT_PASSWORD = 'rehum2026';
+
 const loginGateEl = document.getElementById('loginGate');
 const appLayoutEl = document.getElementById('appLayout');
+const loginFormCard = document.getElementById('loginFormCard');
+const newPasswordCard = document.getElementById('newPasswordCard');
 const loginEmailEl = document.getElementById('loginEmail');
 const loginPasswordEl = document.getElementById('loginPassword');
 const loginSubmitBtn = document.getElementById('loginSubmitBtn');
 const loginErrorEl = document.getElementById('loginError');
+const newPasswordInput = document.getElementById('newPasswordInput');
+const newPasswordConfirmInput = document.getElementById('newPasswordConfirmInput');
+const newPasswordSubmitBtn = document.getElementById('newPasswordSubmitBtn');
+const newPasswordError = document.getElementById('newPasswordError');
 const logoutBtn = document.getElementById('logoutBtn');
 
 function showApp(){
   loginGateEl.style.display = 'none';
   appLayoutEl.style.display = 'flex';
+  try{ sessionStorage.removeItem('rehum_must_change_password'); }catch(e){}
   if(typeof loadCampaigns === 'function') loadCampaigns();
   if(typeof loadAdmissions === 'function') loadAdmissions();
   if(typeof loadHomeStats === 'function') loadHomeStats();
 }
 
+function showLoginForm(){
+  loginGateEl.style.display = 'flex';
+  loginFormCard.style.display = 'block';
+  newPasswordCard.style.display = 'none';
+}
+
+function showNewPasswordForm(){
+  loginGateEl.style.display = 'flex';
+  loginFormCard.style.display = 'none';
+  newPasswordCard.style.display = 'block';
+  try{ sessionStorage.setItem('rehum_must_change_password', '1'); }catch(e){}
+}
+
 function showLogin(message){
   appLayoutEl.style.display = 'none';
-  loginGateEl.style.display = 'flex';
+  showLoginForm();
   if(message){
     loginErrorEl.textContent = message;
     loginErrorEl.style.display = 'block';
@@ -54,12 +77,53 @@ async function attemptLogin(){
     loginErrorEl.style.display = 'block';
     return;
   }
-  showApp();
+
+  if(password === DEFAULT_PASSWORD){
+    showNewPasswordForm();
+  } else {
+    showApp();
+  }
 }
 
 loginSubmitBtn.onclick = attemptLogin;
 loginPasswordEl.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); });
 loginEmailEl.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); });
+
+newPasswordSubmitBtn.onclick = async () => {
+  const novaSenha = newPasswordInput.value;
+  const confirmacao = newPasswordConfirmInput.value;
+  newPasswordError.style.display = 'none';
+
+  if(!novaSenha || novaSenha.length < 6){
+    newPasswordError.textContent = 'A nova senha precisa ter pelo menos 6 caracteres.';
+    newPasswordError.style.display = 'block';
+    return;
+  }
+  if(novaSenha === DEFAULT_PASSWORD){
+    newPasswordError.textContent = 'Escolha uma senha diferente da senha padrão.';
+    newPasswordError.style.display = 'block';
+    return;
+  }
+  if(novaSenha !== confirmacao){
+    newPasswordError.textContent = 'As senhas não coincidem.';
+    newPasswordError.style.display = 'block';
+    return;
+  }
+
+  newPasswordSubmitBtn.disabled = true;
+  const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+  newPasswordSubmitBtn.disabled = false;
+
+  if(error){
+    newPasswordError.textContent = 'Não foi possível salvar a nova senha. Tente novamente.';
+    newPasswordError.style.display = 'block';
+    return;
+  }
+
+  newPasswordInput.value = '';
+  newPasswordConfirmInput.value = '';
+  showApp();
+};
 
 if(logoutBtn){
   logoutBtn.onclick = async () => {
@@ -77,7 +141,13 @@ if(logoutBtn){
   }
   const { data } = await supabaseClient.auth.getSession();
   if(data && data.session){
-    showApp();
+    let stillMustChange = false;
+    try{ stillMustChange = sessionStorage.getItem('rehum_must_change_password') === '1'; }catch(e){}
+    if(stillMustChange){
+      showNewPasswordForm();
+    } else {
+      showApp();
+    }
   } else {
     showLogin();
   }
@@ -190,6 +260,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   let page = pdfDoc.addPage([420, 600]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
   const PRIMARY = rgb(0.263, 0.220, 0.792);
   const INK = rgb(0.09, 0.10, 0.13);
@@ -201,17 +272,16 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   const marginX = 40;
   const pageWidth = 420;
 
-  // Cabeçalho com espaço para os logos. Salve os arquivos logo-rehum.png,
-  // logo-ceuma.png e logo-rh.png na mesma pasta do site pra eles aparecerem aqui.
-  const logoSize = 44;
+  // Cabeçalho com espaço para os logos institucionais (Ceuma e RH).
+  // A logo do ReHum não entra na impressão — ver crédito no rodapé.
+  // Salve os arquivos logo-ceuma.png e logo-rh.png na mesma pasta do site pra eles aparecerem aqui.
+  const logoSize = 32;
   const logoY = 600 - 24 - logoSize;
-  const logoRehum = await tryEmbedImage(pdfDoc, 'logo-rehum.png');
   const logoCeuma = await tryEmbedImage(pdfDoc, 'logo-ceuma.png');
   const logoRh = await tryEmbedImage(pdfDoc, 'logo-rh.png');
 
   [
-    { img: logoRehum, x: marginX },
-    { img: logoCeuma, x: (pageWidth - logoSize) / 2 },
+    { img: logoCeuma, x: marginX },
     { img: logoRh, x: pageWidth - marginX - logoSize },
   ].forEach(({ img, x }) => {
     if(!img) return;
@@ -278,8 +348,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('ReHum', { x: marginX, y: 20, size: 9, font: bold, color: PRIMARY });
-  page.drawText('Workspace interno do RH', { x: marginX + 40, y: 20, size: 8, font, color: MUTED });
+  page.drawText('Gerado via ReHum.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   downloadBytes(bytes, `comprovante-entrega-${setor.nome_setor}.pdf`, 'application/pdf');
@@ -1428,6 +1497,7 @@ admissionDownloadBtn.onclick = async () => {
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
   const PRIMARY = rgb(0.263, 0.220, 0.792);
   const INK = rgb(0.09, 0.10, 0.13);
@@ -1438,15 +1508,15 @@ admissionDownloadBtn.onclick = async () => {
 
   const marginX = 50;
 
-  const logoSize = 46;
+  // Cabeçalho com espaço para os logos institucionais (Ceuma e RH).
+  // A logo do ReHum não entra na impressão — ver crédito no rodapé.
+  const logoSize = 34;
   const logoY = pageHeight - 30 - logoSize;
-  const logoRehum = await tryEmbedImage(pdfDoc, 'logo-rehum.png');
   const logoCeuma = await tryEmbedImage(pdfDoc, 'logo-ceuma.png');
   const logoRh = await tryEmbedImage(pdfDoc, 'logo-rh.png');
 
   [
-    { img: logoRehum, x: marginX },
-    { img: logoCeuma, x: (pageWidth - logoSize) / 2 },
+    { img: logoCeuma, x: marginX },
     { img: logoRh, x: pageWidth - marginX - logoSize },
   ].forEach(({ img, x }) => {
     if(!img) return;
@@ -1530,8 +1600,7 @@ admissionDownloadBtn.onclick = async () => {
 
   y = Math.min(y, 44);
   page.drawLine({ start: { x: marginX, y: 38 }, end: { x: pageWidth - marginX, y: 38 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('ReHum', { x: marginX, y: 22, size: 9.5, font: bold, color: PRIMARY });
-  page.drawText('Workspace interno do RH', { x: marginX + 42, y: 22, size: 8.5, font, color: MUTED });
+  page.drawText('Gerado via ReHum.', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   downloadBytes(bytes, `checklist-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');
