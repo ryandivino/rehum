@@ -307,7 +307,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   ];
   if(confirmado){
     infoLines.push(`Recebido por: ${setor.responsavel_nome || ''}${setor.responsavel_matricula ? ' (matrícula ' + setor.responsavel_matricula + ')' : ''}`);
-    infoLines.push(`Data de confirmação: ${setor.confirmado_em ? formatBrasilia(new Date(setor.confirmado_em)) + ' (horário de Brasília)' : ''}`);
+    infoLines.push(`Data de confirmação: ${setor.confirmado_em ? formatBrasilia(new Date(setor.confirmado_em)) + ' (Horário de Brasília)' : ''}`);
   }
   const infoHeight = infoLines.length * 18 + 16;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 14, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
@@ -320,7 +320,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
   y -= 32;
 
   page.drawText('COLABORADORES', { x: marginX, y, size: 11, font: bold, color: PRIMARY });
@@ -1552,7 +1552,7 @@ admissionDownloadBtn.onclick = async () => {
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9.5, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9.5, font, color: MUTED });
   y -= 30;
 
   let lastSecao = undefined;

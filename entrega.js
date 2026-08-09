@@ -209,7 +209,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
     `Campanha: ${currentCampanhaNome}`,
     `Setor: ${currentSetor.nome_setor}`,
     `Recebido por: ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula})`,
-    `Data de recebimento: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (horário de Brasília)' : ''}`,
+    `Data de recebimento: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (Horário de Brasília)' : ''}`,
   ];
   const infoHeight = infoLines.length * 18 + 16;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 14, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
@@ -222,7 +222,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
   y -= 32;
 
   page.drawText('COLABORADORES', { x: marginX, y, size: 11, font: bold, color: PRIMARY });
