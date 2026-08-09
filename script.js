@@ -1530,7 +1530,7 @@ admissionDownloadBtn.onclick = async () => {
   page.drawLine({ start: { x: marginX, y }, end: { x: pageWidth - marginX, y }, thickness: 2, color: PRIMARY });
   y -= 30;
 
-  page.drawText('Checklist de admissão', { x: marginX, y, size: 18, font: bold, color: PRIMARY });
+  page.drawText('Lista de documentos para admissão', { x: marginX, y, size: 18, font: bold, color: PRIMARY });
   y -= 28;
 
   const total = currentAdmissaoItens.length;
@@ -1603,7 +1603,7 @@ admissionDownloadBtn.onclick = async () => {
   page.drawText('Gerado via ReHum.', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
-  downloadBytes(bytes, `checklist-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');
+  downloadBytes(bytes, `documentos-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');
 };
 
 if(supabaseClient){
