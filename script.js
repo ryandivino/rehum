@@ -234,6 +234,39 @@ function loadImageElement(src){
   });
 }
 
+function trimTransparentEdges(canvas){
+  const ctx = canvas.getContext('2d');
+  const { width, height } = canvas;
+  const data = ctx.getImageData(0, 0, width, height).data;
+
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  const alphaThreshold = 10;
+
+  for(let y = 0; y < height; y++){
+    for(let x = 0; x < width; x++){
+      const alpha = data[(y * width + x) * 4 + 3];
+      if(alpha > alphaThreshold){
+        if(x < minX) minX = x;
+        if(x > maxX) maxX = x;
+        if(y < minY) minY = y;
+        if(y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if(maxX < 0 || (minX === 0 && minY === 0 && maxX === width - 1 && maxY === height - 1)){
+    return canvas; // nada pra recortar (imagem vazia, ou já sem margem)
+  }
+
+  const trimmedWidth = maxX - minX + 1;
+  const trimmedHeight = maxY - minY + 1;
+  const trimmedCanvas = document.createElement('canvas');
+  trimmedCanvas.width = trimmedWidth;
+  trimmedCanvas.height = trimmedHeight;
+  trimmedCanvas.getContext('2d').drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+  return trimmedCanvas;
+}
+
 async function tryEmbedImage(pdfDoc, filename){
   try{
     const imgEl = await loadImageElement(filename);
@@ -242,7 +275,8 @@ async function tryEmbedImage(pdfDoc, filename){
     canvas.height = imgEl.naturalHeight || imgEl.height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(imgEl, 0, 0);
-    const dataUrl = canvas.toDataURL('image/png');
+    const trimmedCanvas = trimTransparentEdges(canvas);
+    const dataUrl = trimmedCanvas.toDataURL('image/png');
     const base64 = dataUrl.split(',')[1];
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -307,7 +341,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   ];
   if(confirmado){
     infoLines.push(`Recebido por: ${setor.responsavel_nome || ''}${setor.responsavel_matricula ? ' (matrícula ' + setor.responsavel_matricula + ')' : ''}`);
-    infoLines.push(`Data de confirmação: ${setor.confirmado_em ? formatBrasilia(new Date(setor.confirmado_em)) + ' (Horário de Brasília)' : ''}`);
+    infoLines.push(`Data de confirmação: ${setor.confirmado_em ? formatBrasilia(new Date(setor.confirmado_em)) + ' (horário de Brasília)' : ''}`);
   }
   const infoHeight = infoLines.length * 18 + 16;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 14, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
@@ -320,7 +354,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
   y -= 32;
 
   page.drawText('COLABORADORES', { x: marginX, y, size: 11, font: bold, color: PRIMARY });
@@ -1070,7 +1104,7 @@ function renderCampaignList(campanhas){
       const qrBtn = document.createElement('button');
       qrBtn.className = 'link-btn';
       qrBtn.textContent = 'Ver QR Code';
-      qrBtn.onclick = () => showQrModal(setor.id, `${campanha.nome} — ${setor.nome_setor}`);
+      qrBtn.onclick = () => showQrModal(setor.id, `${campanha.nome} · ${setor.nome_setor}`, setor.status === 'confirmado');
       row.appendChild(qrBtn);
 
       const comprovanteBtn = document.createElement('button');
@@ -1194,6 +1228,12 @@ const qrModalCanvasWrap = document.getElementById('qrModalCanvas');
 const qrModalLink = document.getElementById('qrModalLink');
 const qrModalClose = document.getElementById('qrModalClose');
 const qrModalDownload = document.getElementById('qrModalDownload');
+const qrModalCopyLink = document.getElementById('qrModalCopyLink');
+const qrModalWhatsapp = document.getElementById('qrModalWhatsapp');
+
+let currentQrUrl = '';
+let currentQrLabel = '';
+let currentQrConfirmado = false;
 
 function closeQrModal(){
   qrModalWrap.style.display = 'none';
@@ -1209,9 +1249,12 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function showQrModal(setorId, title){
+function showQrModal(setorId, title, jaConfirmado){
   const basePath = location.pathname.replace(/index\.html$/, '');
   const url = `${location.origin}${basePath}entrega.html?setor=${setorId}`;
+  currentQrUrl = url;
+  currentQrLabel = title;
+  currentQrConfirmado = !!jaConfirmado;
   qrModalTitle.textContent = title;
   qrModalLink.textContent = url;
   qrModalCanvasWrap.innerHTML = '';
@@ -1243,6 +1286,26 @@ qrModalDownload.onclick = () => {
   a.href = dataUrl;
   a.download = `qrcode-${qrModalTitle.textContent.replace(/\s+/g, '-')}.png`;
   a.click();
+};
+
+qrModalCopyLink.onclick = () => {
+  if(!currentQrUrl) return;
+  const original = qrModalCopyLink.textContent;
+  const done = () => { qrModalCopyLink.textContent = 'Link copiado!'; setTimeout(() => { qrModalCopyLink.textContent = original; }, 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(currentQrUrl).then(done).catch(done);
+  } else {
+    done();
+  }
+};
+
+qrModalWhatsapp.onclick = () => {
+  if(!currentQrUrl) return;
+  const mensagem = currentQrConfirmado
+    ? `Olá! Segue a lista de colaboradores de "${currentQrLabel}" pra você continuar a entrega e marcar quem já recebeu: ${currentQrUrl}`
+    : `Olá! Você precisa confirmar o recebimento deste lote: "${currentQrLabel}". Acesse o link: ${currentQrUrl}`;
+  const url = `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, '_blank');
 };
 
 // ---------- Atualização em tempo real ----------
@@ -1581,7 +1644,7 @@ admissionDownloadBtn.onclick = async () => {
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9.5, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9.5, font, color: MUTED });
   y -= 30;
 
   let lastSecao = undefined;

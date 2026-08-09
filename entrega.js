@@ -139,6 +139,39 @@ function loadImageElement(src){
   });
 }
 
+function trimTransparentEdges(canvas){
+  const ctx = canvas.getContext('2d');
+  const { width, height } = canvas;
+  const data = ctx.getImageData(0, 0, width, height).data;
+
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  const alphaThreshold = 10;
+
+  for(let y = 0; y < height; y++){
+    for(let x = 0; x < width; x++){
+      const alpha = data[(y * width + x) * 4 + 3];
+      if(alpha > alphaThreshold){
+        if(x < minX) minX = x;
+        if(x > maxX) maxX = x;
+        if(y < minY) minY = y;
+        if(y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if(maxX < 0 || (minX === 0 && minY === 0 && maxX === width - 1 && maxY === height - 1)){
+    return canvas; // nada pra recortar (imagem vazia, ou já sem margem)
+  }
+
+  const trimmedWidth = maxX - minX + 1;
+  const trimmedHeight = maxY - minY + 1;
+  const trimmedCanvas = document.createElement('canvas');
+  trimmedCanvas.width = trimmedWidth;
+  trimmedCanvas.height = trimmedHeight;
+  trimmedCanvas.getContext('2d').drawImage(canvas, minX, minY, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+  return trimmedCanvas;
+}
+
 async function tryEmbedImage(pdfDoc, filename){
   try{
     const imgEl = await loadImageElement(filename);
@@ -147,7 +180,8 @@ async function tryEmbedImage(pdfDoc, filename){
     canvas.height = imgEl.naturalHeight || imgEl.height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(imgEl, 0, 0);
-    const dataUrl = canvas.toDataURL('image/png');
+    const trimmedCanvas = trimTransparentEdges(canvas);
+    const dataUrl = trimmedCanvas.toDataURL('image/png');
     const base64 = dataUrl.split(',')[1];
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
@@ -209,7 +243,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
     `Campanha: ${currentCampanhaNome}`,
     `Setor: ${currentSetor.nome_setor}`,
     `Recebido por: ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula})`,
-    `Data de recebimento: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (Horário de Brasília)' : ''}`,
+    `Data de confirmação: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (horário de Brasília)' : ''}`,
   ];
   const infoHeight = infoLines.length * 18 + 16;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 14, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
@@ -222,7 +256,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
   });
   y -= 6;
 
-  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (Horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
+  page.drawText(`Emitido em: ${formatBrasilia(new Date())} (horário de Brasília)`, { x: marginX, y, size: 9, font, color: MUTED });
   y -= 32;
 
   page.drawText('COLABORADORES', { x: marginX, y, size: 11, font: bold, color: PRIMARY });
@@ -250,7 +284,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Gerado via ReHum.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   const blob = new Blob([bytes], { type: 'application/pdf' });

@@ -584,6 +584,15 @@ textarea.form-input{ resize: vertical; font-family:'Inter', sans-serif; }
   cursor:pointer; font-size:14px;
 }
 .qr-modal-close:hover{ color: var(--ink); }
+
+.qr-modal-actions{
+  display:flex;
+  justify-content:center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.qr-whatsapp-btn{ color: #128C4A; }
+.qr-whatsapp-btn:hover{ color: #0E6B38; }
 #qrModalCanvas{ display:flex; justify-content:center; margin-bottom: 12px; }
 
 /* ---------- Página pública de confirmação (entrega.html) ---------- */
