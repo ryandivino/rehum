@@ -348,7 +348,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Gerado via ReHum.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   downloadBytes(bytes, `comprovante-entrega-${setor.nome_setor}.pdf`, 'application/pdf');
@@ -1383,7 +1383,7 @@ function renderAdmissionList(admissoes){
   }
   admissoes.forEach(admissao => {
     const itens = admissao.admissao_itens || [];
-    const total = itens.length;
+    const aplicaveis = itens.filter(i => !i.nao_aplica).length;
     const recebidos = itens.filter(i => i.recebido).length;
 
     const card = document.createElement('div');
@@ -1415,7 +1415,7 @@ function renderAdmissionList(admissoes){
 
     const progress = document.createElement('p');
     progress.className = 'checklist-progress';
-    progress.textContent = `${recebidos}/${total} documentos recebidos`;
+    progress.textContent = `${recebidos}/${aplicaveis} documentos recebidos`;
     card.appendChild(progress);
 
     admissionListEl.appendChild(card);
@@ -1461,11 +1461,12 @@ function renderAdmissionChecklist(){
     }
 
     const row = document.createElement('div');
-    row.className = 'checklist-item';
+    row.className = 'checklist-item' + (item.nao_aplica ? ' checklist-item-na' : '');
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = !!item.recebido;
+    checkbox.disabled = !!item.nao_aplica;
     checkbox.onchange = async () => {
       item.recebido = checkbox.checked;
       if(supabaseClient){
@@ -1484,6 +1485,30 @@ function renderAdmissionChecklist(){
     label.className = 'checklist-item-label';
     label.textContent = item.descricao;
     row.appendChild(label);
+
+    const naBtn = document.createElement('button');
+    naBtn.className = 'checklist-na-btn';
+    naBtn.textContent = item.nao_aplica ? 'Reativar' : 'N/A';
+    naBtn.title = item.nao_aplica ? 'Esse documento volta a ser necessário' : 'Marcar como não aplicável a essa admissão';
+    naBtn.onclick = async () => {
+      item.nao_aplica = !item.nao_aplica;
+      if(item.nao_aplica){
+        item.recebido = false;
+        item.recebido_em = null;
+      }
+      renderAdmissionChecklist();
+      if(supabaseClient){
+        await supabaseClient
+          .from('admissao_itens')
+          .update({
+            nao_aplica: item.nao_aplica,
+            recebido: item.nao_aplica ? false : item.recebido,
+            recebido_em: item.nao_aplica ? null : item.recebido_em,
+          })
+          .eq('id', item.id);
+      }
+    };
+    row.appendChild(naBtn);
 
     admissionChecklistEl.appendChild(row);
   });
@@ -1530,16 +1555,20 @@ admissionDownloadBtn.onclick = async () => {
   page.drawLine({ start: { x: marginX, y }, end: { x: pageWidth - marginX, y }, thickness: 2, color: PRIMARY });
   y -= 30;
 
-  page.drawText('Lista de documentos para admissão', { x: marginX, y, size: 18, font: bold, color: PRIMARY });
+  page.drawText('Checklist de admissão', { x: marginX, y, size: 18, font: bold, color: PRIMARY });
   y -= 28;
 
-  const total = currentAdmissaoItens.length;
+  const aplicaveis = currentAdmissaoItens.filter(i => !i.nao_aplica).length;
   const recebidos = currentAdmissaoItens.filter(i => i.recebido).length;
+  const naoAplicaveis = currentAdmissaoItens.length - aplicaveis;
 
   const infoLines = [
     `Colaborador: ${currentAdmissao.colaborador_nome}`,
-    `Documentos recebidos: ${recebidos}/${total}`,
+    `Documentos recebidos: ${recebidos}/${aplicaveis}`,
   ];
+  if(naoAplicaveis > 0){
+    infoLines.push(`Documentos não aplicáveis a essa admissão: ${naoAplicaveis}`);
+  }
   const infoHeight = infoLines.length * 19 + 16;
   const infoStartY = y;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 15, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
@@ -1571,10 +1600,14 @@ admissionDownloadBtn.onclick = async () => {
       lastSecao = item.secao;
     }
 
-    const dotColor = item.recebido ? SUCCESS : PENDING_BORDER;
+    const NEUTRAL = rgb(0.85, 0.85, 0.88);
+    const dotColor = item.nao_aplica ? NEUTRAL : (item.recebido ? SUCCESS : PENDING_BORDER);
     page.drawCircle({ x: marginX + 3, y: y + 3.2, size: 3, color: dotColor });
 
-    const words = item.descricao.split(' ');
+    const textoItem = item.nao_aplica ? `${item.descricao} (não aplicável)` : item.descricao;
+    const textColor = item.nao_aplica ? MUTED : INK;
+
+    const words = textoItem.split(' ');
     let linha = '';
     const linhas = [];
     words.forEach(w => {
@@ -1592,7 +1625,7 @@ admissionDownloadBtn.onclick = async () => {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         y = pageHeight - 60;
       }
-      page.drawText(l, { x: marginX + 14, y, size: 9.5, font, color: INK });
+      page.drawText(l, { x: marginX + 14, y, size: 9.5, font, color: textColor });
       y -= 12.5;
     });
     y -= 2;
@@ -1600,10 +1633,10 @@ admissionDownloadBtn.onclick = async () => {
 
   y = Math.min(y, 44);
   page.drawLine({ start: { x: marginX, y: 38 }, end: { x: pageWidth - marginX, y: 38 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Gerado via ReHum.', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
-  downloadBytes(bytes, `documentos-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');
+  downloadBytes(bytes, `checklist-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');
 };
 
 if(supabaseClient){
@@ -1633,7 +1666,7 @@ async function loadHomeStats(){
 
   const admissoesEmAndamento = lista.filter(a => {
     const itens = a.admissao_itens || [];
-    return itens.length > 0 && itens.some(i => !i.recebido);
+    return itens.length > 0 && itens.some(i => !i.recebido && !i.nao_aplica);
   }).length;
   const admissoesConcluidas = lista.length - admissoesEmAndamento;
 

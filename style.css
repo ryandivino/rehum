@@ -622,7 +622,22 @@ body.standalone-page{ overflow:auto; background: var(--panel); }
   border-bottom: 1px solid var(--border);
 }
 .checklist-item input{ margin-top: 3px; flex-shrink:0; }
-.checklist-item-label{ font-size: 13.5px; color: var(--ink); line-height:1.4; }
+.checklist-item-label{ font-size: 13.5px; color: var(--ink); line-height:1.4; flex: 1; }
+.checklist-item-na .checklist-item-label{ color: var(--muted); text-decoration: line-through; }
+.checklist-na-btn{
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.checklist-na-btn:hover{ background: var(--soft); color: var(--primary); }
+.checklist-item-na .checklist-na-btn{ color: var(--primary); }
 .checklist-progress{
   font-size: 12.5px;
   color: var(--muted);
