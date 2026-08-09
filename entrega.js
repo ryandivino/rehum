@@ -209,7 +209,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
     `Campanha: ${currentCampanhaNome}`,
     `Setor: ${currentSetor.nome_setor}`,
     `Recebido por: ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula})`,
-    `Data de confirmação: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (horário de Brasília)' : ''}`,
+    `Data de recebimento: ${currentSetor.confirmado_em ? formatBrasilia(new Date(currentSetor.confirmado_em)) + ' (horário de Brasília)' : ''}`,
   ];
   const infoHeight = infoLines.length * 18 + 16;
   page.drawRectangle({ x: marginX, y: infoStartY - infoHeight + 14, width: pageWidth - marginX * 2, height: infoHeight, color: PANEL });
