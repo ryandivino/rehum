@@ -7,6 +7,82 @@ if(window.supabase){
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+// ---------- Login do RH (Supabase Auth) ----------
+const loginGateEl = document.getElementById('loginGate');
+const appLayoutEl = document.getElementById('appLayout');
+const loginEmailEl = document.getElementById('loginEmail');
+const loginPasswordEl = document.getElementById('loginPassword');
+const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+const loginErrorEl = document.getElementById('loginError');
+const logoutBtn = document.getElementById('logoutBtn');
+
+function showApp(){
+  loginGateEl.style.display = 'none';
+  appLayoutEl.style.display = 'flex';
+  if(typeof loadCampaigns === 'function') loadCampaigns();
+  if(typeof loadAdmissions === 'function') loadAdmissions();
+  if(typeof loadHomeStats === 'function') loadHomeStats();
+}
+
+function showLogin(message){
+  appLayoutEl.style.display = 'none';
+  loginGateEl.style.display = 'flex';
+  if(message){
+    loginErrorEl.textContent = message;
+    loginErrorEl.style.display = 'block';
+  } else {
+    loginErrorEl.style.display = 'none';
+  }
+}
+
+async function attemptLogin(){
+  const email = loginEmailEl.value.trim();
+  const password = loginPasswordEl.value;
+  if(!email || !password) return;
+  if(!supabaseClient){
+    showLogin('Conexão com o banco não disponível.');
+    return;
+  }
+  loginSubmitBtn.disabled = true;
+  loginErrorEl.style.display = 'none';
+
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  loginSubmitBtn.disabled = false;
+  if(error){
+    loginErrorEl.textContent = 'E-mail ou senha incorretos.';
+    loginErrorEl.style.display = 'block';
+    return;
+  }
+  showApp();
+}
+
+loginSubmitBtn.onclick = attemptLogin;
+loginPasswordEl.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); });
+loginEmailEl.addEventListener('keydown', e => { if(e.key === 'Enter') attemptLogin(); });
+
+if(logoutBtn){
+  logoutBtn.onclick = async () => {
+    if(supabaseClient) await supabaseClient.auth.signOut();
+    loginEmailEl.value = '';
+    loginPasswordEl.value = '';
+    showLogin();
+  };
+}
+
+(async function checkAuth(){
+  if(!supabaseClient){
+    showLogin('Conexão com o banco não disponível.');
+    return;
+  }
+  const { data } = await supabaseClient.auth.getSession();
+  if(data && data.session){
+    showApp();
+  } else {
+    showLogin();
+  }
+})();
+
 // ---------- Navegação entre views ----------
 const viewEls = {
   home: document.getElementById('viewHome'),
@@ -160,7 +236,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
     `Status: ${confirmado ? 'Confirmado' : 'Aguardando confirmação'}`,
   ];
   if(confirmado){
-    infoLines.push(`Recebido por: ${setor.responsavel_nome || ''}`);
+    infoLines.push(`Recebido por: ${setor.responsavel_nome || ''}${setor.responsavel_matricula ? ' (matrícula ' + setor.responsavel_matricula + ')' : ''}`);
     infoLines.push(`Data de confirmação: ${setor.confirmado_em ? formatBrasilia(new Date(setor.confirmado_em)) + ' (horário de Brasília)' : ''}`);
   }
   const infoHeight = infoLines.length * 18 + 16;
@@ -329,9 +405,10 @@ mergeRunBtn.onclick = async () => {
   mergeRunBtn.disabled = mergeFiles.length < 2;
 };
 
-// ---------- Ferramenta: Reordenar / excluir páginas ----------
-let reorderSourceBytes = null;
-let reorderPages = [];
+// ---------- Ferramenta: Reordenar / excluir páginas (aceita múltiplos arquivos) ----------
+let reorderSources = {}; // { sourceId: bytes }
+let reorderSourceIdCounter = 0;
+let reorderPages = []; // { id, sourceId, originalIndex, thumbnail }
 let reorderPageIdCounter = 0;
 
 const reorderDropzone = document.getElementById('reorderDropzone');
@@ -343,7 +420,7 @@ const reorderStatusEl = document.getElementById('reorderStatus');
 
 reorderBrowseBtn.onclick = () => reorderFileInput.click();
 reorderFileInput.addEventListener('change', e => {
-  if(e.target.files.length) loadReorderFile(e.target.files[0]);
+  if(e.target.files.length) addReorderFiles(e.target.files);
 });
 
 reorderDropzone.addEventListener('dragover', e => { e.preventDefault(); reorderDropzone.classList.add('dragover'); });
@@ -351,48 +428,57 @@ reorderDropzone.addEventListener('dragleave', () => reorderDropzone.classList.re
 reorderDropzone.addEventListener('drop', e => {
   e.preventDefault();
   reorderDropzone.classList.remove('dragover');
-  if(e.dataTransfer.files.length) loadReorderFile(e.dataTransfer.files[0]);
+  if(e.dataTransfer.files.length) addReorderFiles(e.dataTransfer.files);
 });
 
 if(window.pdfjsLib){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 }
 
-async function loadReorderFile(file){
-  if(file.type !== 'application/pdf') return;
-  reorderStatusEl.textContent = 'Lendo o arquivo...';
-  reorderStatusEl.className = 'tool-status';
+async function addReorderFiles(fileList){
+  const files = Array.from(fileList).filter(f => f.type === 'application/pdf');
+  if(files.length === 0) return;
+
   reorderRunBtn.disabled = true;
+  reorderStatusEl.textContent = 'Lendo arquivo(s)...';
+  reorderStatusEl.className = 'tool-status';
 
-  try{
-    const bytes = await file.arrayBuffer();
-    const { PDFDocument } = PDFLib;
-    const pdf = await PDFDocument.load(bytes);
-    const pageCount = pdf.getPageCount();
+  for(const file of files){
+    try{
+      const bytes = await file.arrayBuffer();
+      const { PDFDocument } = PDFLib;
+      const pdf = await PDFDocument.load(bytes);
+      const pageCount = pdf.getPageCount();
 
-    reorderSourceBytes = bytes;
-    reorderPages = Array.from({ length: pageCount }, (_, i) => ({
-      id: 'rp' + (reorderPageIdCounter++),
-      originalIndex: i,
-      thumbnail: null,
-    }));
+      const sourceId = 'src' + (reorderSourceIdCounter++);
+      reorderSources[sourceId] = bytes;
 
-    renderReorderPageList();
-    reorderStatusEl.textContent = `${pageCount} página(s) carregada(s) de "${file.name}". Arraste para reordenar.`;
-    reorderStatusEl.className = 'tool-status';
+      const novasPaginas = Array.from({ length: pageCount }, (_, i) => ({
+        id: 'rp' + (reorderPageIdCounter++),
+        sourceId,
+        originalIndex: i,
+        thumbnail: null,
+      }));
+      reorderPages = reorderPages.concat(novasPaginas);
 
-    renderReorderThumbnails(bytes.slice(0));
-  } catch(err){
-    reorderStatusEl.textContent = 'Não foi possível ler esse arquivo. Verifique se é um PDF válido.';
-    reorderStatusEl.className = 'tool-status error';
+      renderReorderPageList();
+      reorderStatusEl.textContent = `${pageCount} página(s) adicionada(s) de "${file.name}". Arraste para reordenar ou adicione mais arquivos.`;
+      reorderStatusEl.className = 'tool-status';
+
+      renderReorderThumbnails(sourceId, bytes.slice(0));
+    } catch(err){
+      reorderStatusEl.textContent = `Não foi possível ler "${file.name}". Verifique se é um PDF válido.`;
+      reorderStatusEl.className = 'tool-status error';
+    }
   }
 }
 
-async function renderReorderThumbnails(bytesCopy){
+async function renderReorderThumbnails(sourceId, bytesCopy){
   if(!window.pdfjsLib) return;
   try{
     const pdfjsDoc = await pdfjsLib.getDocument({ data: bytesCopy }).promise;
-    for(const page of reorderPages){
+    const paginasDesseArquivo = reorderPages.filter(p => p.sourceId === sourceId);
+    for(const page of paginasDesseArquivo){
       try{
         const pdfjsPage = await pdfjsDoc.getPage(page.originalIndex + 1);
         const viewport = pdfjsPage.getViewport({ scale: 0.35 });
@@ -440,9 +526,7 @@ function renderReorderPageList(){
 
     const label = document.createElement('span');
     label.className = 'page-num';
-    label.textContent = (page.originalIndex + 1 === index + 1)
-      ? `Pág. ${index + 1}`
-      : `Pág. ${index + 1} (orig. ${page.originalIndex + 1})`;
+    label.textContent = `Pág. ${index + 1}`;
     li.appendChild(label);
 
     const removeBtn = document.createElement('button');
@@ -496,18 +580,27 @@ function removeReorderPageById(id){
 }
 
 reorderRunBtn.onclick = async () => {
-  if(!reorderSourceBytes || reorderPages.length === 0) return;
+  if(reorderPages.length === 0) return;
   reorderRunBtn.disabled = true;
   reorderStatusEl.textContent = 'Gerando novo PDF...';
   reorderStatusEl.className = 'tool-status';
 
   try{
     const { PDFDocument } = PDFLib;
-    const sourcePdf = await PDFDocument.load(reorderSourceBytes);
     const newPdf = await PDFDocument.create();
-    const indices = reorderPages.map(p => p.originalIndex);
-    const pages = await newPdf.copyPages(sourcePdf, indices);
-    pages.forEach(p => newPdf.addPage(p));
+
+    // Carrega cada arquivo-fonte só uma vez, mesmo que várias páginas venham dele
+    const loadedSources = {};
+    for(const sourceId of Object.keys(reorderSources)){
+      loadedSources[sourceId] = await PDFDocument.load(reorderSources[sourceId]);
+    }
+
+    for(const page of reorderPages){
+      const sourcePdf = loadedSources[page.sourceId];
+      const [copiedPage] = await newPdf.copyPages(sourcePdf, [page.originalIndex]);
+      newPdf.addPage(copiedPage);
+    }
+
     const newBytes = await newPdf.save();
     downloadBytes(newBytes, 'documento-editado.pdf', 'application/pdf');
     reorderStatusEl.textContent = 'PDF gerado e baixado com sucesso.';
@@ -1456,3 +1549,42 @@ if(supabaseClient){
 }
 
 loadAdmissions();
+
+// ---------- Painel de indicadores (tela Início) ----------
+async function loadHomeStats(){
+  const statsGridEl = document.getElementById('statsGrid');
+  if(!statsGridEl) return;
+  if(!supabaseClient){
+    statsGridEl.innerHTML = '';
+    return;
+  }
+
+  const { data: admissoes } = await supabaseClient.from('admissoes').select('*, admissao_itens(*)');
+  const lista = admissoes || [];
+
+  const admissoesEmAndamento = lista.filter(a => {
+    const itens = a.admissao_itens || [];
+    return itens.length > 0 && itens.some(i => !i.recebido);
+  }).length;
+  const admissoesConcluidas = lista.length - admissoesEmAndamento;
+
+  const stats = [
+    { label: 'Admissões em andamento', value: admissoesEmAndamento, alert: admissoesEmAndamento > 0 },
+    { label: 'Admissões concluídas', value: admissoesConcluidas, alert: false },
+  ];
+
+  statsGridEl.innerHTML = '';
+  stats.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'stat-card' + (s.alert ? ' stat-alert' : '');
+    const value = document.createElement('div');
+    value.className = 'stat-value';
+    value.textContent = s.value;
+    const label = document.createElement('div');
+    label.className = 'stat-label';
+    label.textContent = s.label;
+    card.appendChild(value);
+    card.appendChild(label);
+    statsGridEl.appendChild(card);
+  });
+}

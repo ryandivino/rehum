@@ -9,7 +9,22 @@
 </head>
 <body>
 
-<div class="app-layout">
+<div class="login-gate" id="loginGate" style="display:none;">
+  <div class="login-card">
+    <div class="brand-mark brand-mark-large">
+      <img src="logo.png" alt="Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      <span class="logo-fallback">R</span>
+    </div>
+    <h1>Acesso do RH</h1>
+    <p>Entre com seu e-mail e senha cadastrados.</p>
+    <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+    <button class="primary-btn" id="loginSubmitBtn">Entrar</button>
+    <p class="login-error" id="loginError" style="display:none;"></p>
+  </div>
+</div>
+
+<div class="app-layout" id="appLayout" style="display:none;">
 
   <header class="mobile-topbar">
     <button class="hamburger-btn" id="hamburgerBtn" aria-label="Abrir menu">
@@ -83,7 +98,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="sidebar-scope sidebar-label">Workspace interno · RH</div>
+      <button class="logout-btn sidebar-label" id="logoutBtn">Sair</button>
     </div>
   </aside>
 
@@ -100,6 +115,8 @@
           <h1>Bem-vindo ao ReHum!</h1>
           <p class="empty-sub">O workspace interno do RH: documentos, entregas e admissão, tudo em um só lugar.</p>
         </div>
+
+        <div class="stats-grid" id="statsGrid"></div>
 
         <div class="module-grid">
           <button class="module-card" data-goto="docs">
@@ -159,7 +176,7 @@
           </button>
           <button class="tool-card" id="cardReorder" data-tool="reorder">
             <span class="tool-card-title">Reordenar / excluir páginas</span>
-            <span class="tool-card-desc">Mude a ordem ou remova páginas de um PDF.</span>
+            <span class="tool-card-desc">Mude a ordem, remova páginas ou junte vários PDFs num só.</span>
           </button>
         </div>
 
@@ -175,9 +192,10 @@
 
         <div class="tool-area" id="reorderToolArea" style="display:none;">
           <div class="dropzone" id="reorderDropzone">
-            <input type="file" id="reorderFileInput" accept="application/pdf" style="display:none;">
-            <p>Arraste um PDF aqui ou <button class="link-btn" id="reorderBrowseBtn">selecione o arquivo</button></p>
+            <input type="file" id="reorderFileInput" accept="application/pdf" multiple style="display:none;">
+            <p>Arraste um ou mais PDFs aqui ou <button class="link-btn" id="reorderBrowseBtn">selecione os arquivos</button></p>
           </div>
+          <p class="tool-status">Pode adicionar mais arquivos depois, as páginas de todos entram na mesma lista pra você organizar e juntar.</p>
           <ul class="page-grid" id="reorderPageList"></ul>
           <button class="primary-btn" id="reorderRunBtn" disabled>Salvar novo PDF</button>
           <p class="tool-status" id="reorderStatus"></p>
@@ -214,7 +232,7 @@
           <label class="form-label">Nome da campanha</label>
           <input type="text" class="form-input" id="campaignNameInput" placeholder="Ex: Fardamentos 2026">
 
-          <label class="form-label">Planilha de colaboradores (colunas: Matrícula, Nome, Setor)</label>
+          <label class="form-label">Planilha de colaboradores (colunas: Nome, Setor)</label>
           <div class="dropzone" id="campaignDropzone">
             <input type="file" id="campaignFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
             <p>Arraste a planilha aqui ou <button class="link-btn" id="campaignBrowseBtn">selecione o arquivo</button></p>
@@ -249,7 +267,7 @@
           <h3>Adicionar setor manualmente</h3>
           <label class="form-label">Nome do setor</label>
           <input type="text" class="form-input" id="manualSetorNameInput" placeholder="Ex: Manutenção">
-          <label class="form-label">Colaboradores (um por linha: matrícula, nome, setor)</label>
+          <label class="form-label">Colaboradores (um por linha: matrícula, nome)</label>
           <textarea class="form-input" id="manualSetorTextarea" rows="6" placeholder="0001, Ana Souza&#10;0002, Bruno Lima"></textarea>
           <button class="primary-btn" id="manualSetorSaveBtn">Adicionar setor</button>
           <p class="tool-status" id="manualSetorStatus"></p>
