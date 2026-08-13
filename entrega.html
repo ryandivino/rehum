@@ -24,6 +24,8 @@
     <p class="empty-sub">Confirme quem está recebendo esse lote pelo setor. A partir dessa confirmação, a responsabilidade de entregar aos colaboradores passa a ser sua.</p>
     <label class="form-label">Seu nome</label>
     <input type="text" class="form-input" id="responsavelInput" placeholder="Nome completo">
+    <label class="form-label">Sua matrícula</label>
+    <input type="text" class="form-input" id="responsavelMatriculaInput" placeholder="Matrícula">
     <button class="primary-btn" id="confirmReceiptBtn">Confirmar recebimento</button>
     <p class="tool-status" id="identifyStatus"></p>
   </div>
@@ -31,6 +33,10 @@
   <div class="standalone-card" id="checklistState" style="display:none;">
     <h1 class="panel-title" id="checklistTitle"></h1>
     <p class="empty-sub" id="checklistMeta"></p>
+    <div class="qr-modal-actions" style="justify-content:flex-start; margin-bottom:0;">
+      <button class="link-btn" id="copyListLinkBtn">Copiar link</button>
+      <button class="link-btn qr-whatsapp-btn" id="shareListWhatsappBtn">Compartilhar no WhatsApp</button>
+    </div>
     <ul class="file-list" id="colaboradorList"></ul>
     <button class="link-btn" id="downloadComprovanteBtn">Baixar comprovante de recebimento</button>
   </div>

@@ -382,7 +382,7 @@ async function downloadComprovanteEntrega(campanhaNome, setor){
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   downloadBytes(bytes, `comprovante-entrega-${setor.nome_setor}.pdf`, 'application/pdf');
@@ -840,6 +840,7 @@ const campaignDropzone = document.getElementById('campaignDropzone');
 const campaignFileInput = document.getElementById('campaignFileInput');
 const campaignBrowseBtn = document.getElementById('campaignBrowseBtn');
 const campaignPreviewEl = document.getElementById('campaignPreview');
+const campaignPrazoInput = document.getElementById('campaignPrazoInput');
 const campaignCancelBtn = document.getElementById('campaignCancelBtn');
 const campaignCreateBtn = document.getElementById('campaignCreateBtn');
 const campaignStatusEl = document.getElementById('campaignStatus');
@@ -859,6 +860,7 @@ campaignCancelBtn.onclick = () => {
 
 function resetCampaignForm(){
   campaignNameInput.value = '';
+  campaignPrazoInput.value = '';
   parsedRows = [];
   campaignPreviewEl.innerHTML = '';
   campaignCreateBtn.disabled = true;
@@ -979,6 +981,8 @@ campaignCreateBtn.onclick = async () => {
   const nome = campaignNameInput.value.trim();
   if(!nome || parsedRows.length === 0) return;
 
+  const prazoHoras = campaignPrazoInput.value.trim() ? Number(campaignPrazoInput.value) : null;
+
   campaignCreateBtn.disabled = true;
   campaignStatusEl.textContent = 'Criando campanha...';
   campaignStatusEl.className = 'tool-status';
@@ -986,7 +990,7 @@ campaignCreateBtn.onclick = async () => {
   try{
     const { data: campanha, error: campErr } = await supabaseClient
       .from('campanhas')
-      .insert({ nome })
+      .insert({ nome, prazo_horas: prazoHoras })
       .select()
       .single();
     if(campErr) throw campErr;
@@ -1696,7 +1700,7 @@ admissionDownloadBtn.onclick = async () => {
 
   y = Math.min(y, 44);
   page.drawLine({ start: { x: marginX, y: 38 }, end: { x: pageWidth - marginX, y: 38 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum', { x: marginX, y: 22, size: 8.5, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   downloadBytes(bytes, `checklist-admissao-${currentAdmissao.colaborador_nome.replace(/\s+/g, '-')}.pdf`, 'application/pdf');

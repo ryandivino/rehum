@@ -15,11 +15,26 @@ const checklistState = document.getElementById('checklistState');
 
 let currentSetor = null;
 let currentColaboradores = [];
+let currentCampanha = {};
 let currentCampanhaNome = '';
 
 function showState(el){
   [loadingState, notFoundState, identifyState, checklistState].forEach(s => { s.style.display = 'none'; });
   el.style.display = 'flex';
+}
+
+function calcularPrazoExpirado(setor, campanha){
+  if(!campanha || !campanha.prazo_horas || !setor.confirmado_em) return false;
+  const limite = new Date(setor.confirmado_em);
+  limite.setHours(limite.getHours() + campanha.prazo_horas);
+  return new Date() > limite;
+}
+
+function calcularDataLimite(setor, campanha){
+  if(!campanha || !campanha.prazo_horas || !setor.confirmado_em) return null;
+  const limite = new Date(setor.confirmado_em);
+  limite.setHours(limite.getHours() + campanha.prazo_horas);
+  return limite;
 }
 
 async function init(){
@@ -30,7 +45,7 @@ async function init(){
 
   const { data: setor, error } = await supabaseClient
     .from('setores')
-    .select('*, campanhas(nome), colaboradores(*)')
+    .select('*, campanhas(nome, prazo_horas), colaboradores(*)')
     .eq('id', setorId)
     .single();
 
@@ -41,7 +56,8 @@ async function init(){
 
   currentSetor = setor;
   currentColaboradores = setor.colaboradores || [];
-  currentCampanhaNome = setor.campanhas ? setor.campanhas.nome : '';
+  currentCampanha = setor.campanhas || {};
+  currentCampanhaNome = currentCampanha.nome || '';
 
   if(setor.status === 'confirmado'){
     renderChecklist();
@@ -51,7 +67,7 @@ async function init(){
 }
 
 function renderIdentify(){
-  document.getElementById('identifyTitle').textContent = `${currentCampanhaNome} — ${currentSetor.nome_setor}`;
+  document.getElementById('identifyTitle').textContent = `${currentCampanhaNome} · ${currentSetor.nome_setor}`;
   showState(identifyState);
 }
 
@@ -90,9 +106,19 @@ document.getElementById('confirmReceiptBtn').onclick = async () => {
 };
 
 function renderChecklist(){
-  document.getElementById('checklistTitle').textContent = `${currentCampanhaNome} — ${currentSetor.nome_setor}`;
-  document.getElementById('checklistMeta').textContent =
-    `Recebido por ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula}). Marque quem já recebeu.`;
+  document.getElementById('checklistTitle').textContent = `${currentCampanhaNome} · ${currentSetor.nome_setor}`;
+
+  const prazoExpirado = calcularPrazoExpirado(currentSetor, currentCampanha);
+  const dataLimite = calcularDataLimite(currentSetor, currentCampanha);
+  const metaEl = document.getElementById('checklistMeta');
+
+  if(prazoExpirado){
+    metaEl.textContent = `Recebido por ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula}). Prazo pra marcar colaboradores encerrado em ${formatBrasilia(dataLimite)} (horário de Brasília). Fale com o RH se precisar de alguma correção.`;
+  } else if(dataLimite){
+    metaEl.textContent = `Recebido por ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula}). Marque quem já recebeu até ${formatBrasilia(dataLimite)} (horário de Brasília).`;
+  } else {
+    metaEl.textContent = `Recebido por ${currentSetor.responsavel_nome} (matrícula ${currentSetor.responsavel_matricula}). Marque quem já recebeu.`;
+  }
 
   const listEl = document.getElementById('colaboradorList');
   listEl.innerHTML = '';
@@ -102,6 +128,7 @@ function renderChecklist(){
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = !!colab.recebeu;
+    checkbox.disabled = prazoExpirado;
     checkbox.setAttribute('aria-label', `Marcar ${colab.nome} como recebido`);
     checkbox.onchange = async () => {
       const { error } = await supabaseClient
@@ -125,6 +152,23 @@ function renderChecklist(){
 
   showState(checklistState);
 }
+
+document.getElementById('copyListLinkBtn').onclick = () => {
+  const link = location.href;
+  const btn = document.getElementById('copyListLinkBtn');
+  const original = btn.textContent;
+  const done = () => { btn.textContent = 'Link copiado!'; setTimeout(() => { btn.textContent = original; }, 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(done).catch(done);
+  } else {
+    done();
+  }
+};
+
+document.getElementById('shareListWhatsappBtn').onclick = () => {
+  const mensagem = `Olá! Segue a lista de colaboradores de "${currentCampanhaNome} · ${currentSetor.nome_setor}" pra continuar a entrega e marcar quem já recebeu: ${location.href}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank');
+};
 
 function formatBrasilia(date){
   return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -284,7 +328,7 @@ document.getElementById('downloadComprovanteBtn').onclick = async () => {
 
   y = Math.min(y, 40);
   page.drawLine({ start: { x: marginX, y: 34 }, end: { x: pageWidth - marginX, y: 34 }, thickness: 0.5, color: PENDING_BORDER });
-  page.drawText('Documento gerado via ReHum, sistema interno em implantação.', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
+  page.drawText('Documento gerado via ReHum', { x: marginX, y: 20, size: 8, font: italic, color: MUTED });
 
   const bytes = await pdfDoc.save();
   const blob = new Blob([bytes], { type: 'application/pdf' });

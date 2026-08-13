@@ -111,6 +111,7 @@
     </nav>
 
     <div class="sidebar-footer">
+      <div class="sidebar-scope sidebar-label">Workspace interno · RH</div>
       <button class="logout-btn sidebar-label" id="logoutBtn">Sair</button>
     </div>
   </aside>
@@ -253,6 +254,9 @@
 
           <div id="campaignPreview"></div>
 
+          <label class="form-label">Prazo para marcar colaboradores, em horas após a confirmação do setor (opcional)</label>
+          <input type="number" class="form-input" id="campaignPrazoInput" placeholder="Ex: 48" min="1">
+
           <div class="form-actions">
             <button class="link-btn" id="campaignCancelBtn">Cancelar</button>
             <button class="primary-btn" id="campaignCreateBtn" disabled>Criar campanha</button>
@@ -330,7 +334,6 @@
         <button class="primary-btn add-setor-btn" id="admissionDownloadBtn">Baixar comprovante em PDF</button>
       </div>
     </div>
-
   </div>
 
 </div>
